@@ -1,5 +1,6 @@
 # FrothmaleriEpichloe
 
+```
 The project is organized under the main directory FrothEpi/, structured into two major modules: Plant host and Fungal 
 endophyte. Each module contains data, scripts, and outputs corresponding to specific stages of the analysis. Folder 
 system as follows:
@@ -29,4 +30,5 @@ FrothEpi/
 │       ├── script2.sh                        # Shell script: Detection of multiple gene copies in reference genomes
 │       ├── script3.sh                        # Shell script: Phylogenetic inference using IQ-TREE2 and ASTRAL
 │       └── script4.Rmd                       # RMarkdown: Visualization and editing of phylogenetic trees
+```
 
