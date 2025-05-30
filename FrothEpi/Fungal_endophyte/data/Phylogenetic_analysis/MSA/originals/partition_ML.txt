@@ -1,0 +1,9 @@
+#nexus
+begin sets;
+    charset actG = 1-1036;
+    charset CalM = 1037-2073;
+    charset ITS = 2074-2590;
+    charset tef1 = 2591-3234;
+    charset tub2 = 3235-4237;
+    charpartition mine = K2P+G4:actG, TNe+G4:CalM, HKY+F+I:ITS, TIM2e+G4:tef1, K2P+G4:tub2;
+end;
