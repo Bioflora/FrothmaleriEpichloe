@@ -1,0 +1,1296 @@
+---
+title: "Analysis of asexual structures morphology and culture growth in _Epichloë_"
+author: "Sotomayor-Alge, Alba"
+date: "05-26-2025"
+output:
+  bookdown::pdf_book:
+    toc: yes
+    toc_depth: 3
+    number_sections: yes
+    highlight: tango
+    latex_engine: xelatex
+    keep_tex: true
+---
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Working session setup
+
+```{r Load packages into working session}
+
+# Function to silently load packages without warnings or messages
+load_packages <- function(pkgs) {
+  invisible(
+    lapply(pkgs, function(pkg) {
+      suppressWarnings(
+        suppressMessages(
+          if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+            stop(paste("❌ Package not found:", pkg), call. = FALSE)
+          }
+        )
+      )
+    })
+  )
+}
+
+# Vector of required packages
+packages_needed <- c("dplyr", "tidyr", "ggplot2", "knitr", "ggcorrplot", "vegan", 
+                     "coin", "FactoMineR", "factoextra", "patchwork", "MASS", 
+                     "caret", "lme4", "lmerTest", "emmeans", "openxlsx", "rlang"
+)
+
+# Call the function to load them
+load_packages(packages_needed)
+
+```
+
+```{r Working session information}
+
+# Print the information of the working session in order to ensure reproducibility
+sessionInfo()
+
+```
+
+\newpage
+
+```{r Create directories and exporting function}
+
+# Create directories within the file system to save the results of the analyses
+dir.create("../data/outputs_script1", recursive = TRUE, showWarnings = FALSE)
+dir.create("../data/outputs_script1/1_Spores_dataset", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script1/1_Spores_dataset/1_EDA", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script1/1_Spores_dataset/2_STAT", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script1/1_Spores_dataset/3_PCA", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script1/1_Spores_dataset/4_LDA", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script1/2_Culture_growth_dataset", recursive = TRUE, 
+           showWarnings = FALSE)
+
+# Helper function to add and format sheets of excel files created in this script
+add_formatted_sheet <- function(wb, sheet_name, data) {
+  addWorksheet(wb, sheet_name)
+  writeData(wb, sheet = sheet_name, x = data)
+
+  # Define styles
+  style_text <- createStyle(
+    border = "TopBottomLeftRight",
+    halign = "center",
+    valign = "center"
+  )
+  style_integer <- createStyle(
+    border = "TopBottomLeftRight",
+    halign = "center",
+    valign = "center",
+    numFmt = "0"
+  )
+  style_decimal <- createStyle(
+    border = "TopBottomLeftRight",
+    halign = "center",
+    valign = "center",
+    numFmt = "#,##0.000"
+  )
+
+  # Apply style to each column individually
+  for (colname in names(data)) {
+    col_index <- which(names(data) == colname)
+    column_data <- data[[colname]]
+
+    if (is.numeric(column_data)) {
+      if (is.integer(column_data)) {
+        # True integer
+        addStyle(wb, sheet = sheet_name, style = style_integer,
+                 rows = 1:(nrow(data) + 1), cols = col_index, gridExpand = TRUE)
+      } else {
+        # Numeric (with decimals)
+        addStyle(wb, sheet = sheet_name, style = style_decimal,
+                 rows = 1:(nrow(data) + 1), cols = col_index, gridExpand = TRUE)
+      }
+    } else {
+      # Non-numeric columns
+      addStyle(wb, sheet = sheet_name, style = style_text,
+               rows = 1:(nrow(data) + 1), cols = col_index, gridExpand = TRUE)
+    }
+  }
+
+  # Adjust column widths
+  setColWidths(wb, sheet = sheet_name, cols = 1:ncol(data), widths = "auto")
+}
+
+```
+
+\newpage
+
+# Morphological analisys of the asexual reproductive structures (conidia and conidiophores) of _Epichloë_ endophytes
+
+## Load, explore & mutate data set
+
+```{r Data set load, exploration and mutation}
+
+# Load the data set (comma as decimal, semicolon as separator)
+spores_data <- read.table("../data/spores_dataset.csv",
+                          dec = ",", sep = ";", header = TRUE, row.names = 1)
+
+# Create two new columns:'Rep_ind' as combination of replicate and individual 
+# and 'Plo_pop' as combination of population of origin and host ploidy
+spores_data <- spores_data %>%
+  mutate(
+    Rep_ind = paste(Ind, Rep, sep = "-"),
+    Plo_pop = paste(Pop, Ploidy, sep = "")
+  )
+
+# Convert relevant columns to factors
+spores_data <- spores_data %>%
+  mutate(across(c(Ind, Rep, Pop, Ploidy, Rep_ind, Plo_pop), as.factor))
+
+```
+Before continuing with the analyses, the existence of outliers is assessed and, when found, they were removed applying the IQR method.
+
+```{r Outliers removal (IQR method)}
+
+# Define the numerical variables to be checked for outliers
+numeric_vars <- c("conidW", "conidL", "conidA", "conidiophW", "conidiophL")
+
+# Start with the full dataset
+spores_data_clean <- spores_data
+
+# Iteratively remove outliers based on IQR method for each variable
+for (var in numeric_vars) {
+  
+  # Compute Q1, Q3 and IQR
+  Q1 <- quantile(spores_data_clean[[var]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(spores_data_clean[[var]], 0.75, na.rm = TRUE)
+  IQR_val <- Q3 - Q1
+  
+  # Define lower and upper bounds
+  lower <- Q1 - 1.5 * IQR_val
+  upper <- Q3 + 1.5 * IQR_val
+  
+  # Keep only values within bounds
+  spores_data_clean <- spores_data_clean[
+    spores_data_clean[[var]] >= lower & spores_data_clean[[var]] <= upper, ]
+}
+
+```
+
+\newpage
+
+## Exploratory Data Analysis (EDA)
+
+### Graphic approach
+
+```{r Visualize data distribution}
+
+# Function to generate and save violin plots as a panel in A4 PDF format
+plot_violin_grouped <- function(data, group_var, group_colors,
+                                title_prefix = "Violin plot",
+                                output_path = "violin_panel.pdf") {
+  
+  group_sym <- ensym(group_var)
+  
+  # Convert to long format
+  long_data <- data %>%
+    pivot_longer(cols = c(conidW, conidL, conidA, conidiophW, conidiophL),
+                 names_to = "Variable", values_to = "Value") %>%
+    mutate(Group = factor(!!group_sym, 
+                          levels = unique(data[[as.character(group_sym)]])))
+
+  # Store individual ggplots
+  plots <- list()
+
+  for (var in unique(long_data$Variable)) {
+    var_data <- filter(long_data, Variable == var)
+
+    summary_stats <- var_data %>%
+      group_by(Group) %>%
+      summarise(
+        Mean = mean(Value, na.rm = TRUE),
+        SD = sd(Value, na.rm = TRUE),
+        .groups = "drop"
+      )
+
+    p <- ggplot(var_data, aes(x = Group, y = Value, fill = Group)) +
+      geom_violin(trim = TRUE) +
+      geom_point(data = summary_stats, aes(x = Group, y = Mean),
+                 color = "black", size = 2, shape = 16) +
+      geom_errorbar(data = summary_stats,
+                    aes(x = Group, y = Mean, ymin = Mean - SD, ymax = Mean + SD),
+                    width = 0.2, color = "black", linetype = "longdash") +
+      scale_fill_manual(values = group_colors) +
+      labs(
+        title = paste(title_prefix, "-", var),
+        x = NULL, y = "µm"
+      ) +
+      theme_minimal(base_size = 8) +
+      theme(
+        legend.position = "none",
+        plot.title = element_text(size = 9, hjust = 0.5),
+        axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7)
+      )
+
+    plots[[var]] <- p
+  }
+
+  # Combine all plots into a panel
+  panel <- wrap_plots(plots, ncol = 2)
+
+  # Save as A4 PDF (21 cm × 29.7 cm)
+  ggsave(output_path, panel, width = 21, height = 29.7, units = "cm", dpi = 300, 
+         device = cairo_pdf)
+}
+
+# Color pallets and violin plots by the interaction between population of origin
+# and host ploidy level and each factor independently
+
+plot_violin_grouped(
+  data = spores_data_clean,
+  group_var = "Pop",
+  group_colors = c("mon" = "#283F79", "cab" = "#3DB168", "can" = "#581E1E"),
+  title_prefix = "\n\n Morphological traits by population",
+  output_path = "../data/outputs_script1/1_Spores_dataset/1_EDA/violinplot_pannel_pop.pdf"
+)
+
+plot_violin_grouped(
+  data = spores_data_clean,
+  group_var = "Ploidy",
+  group_colors = c("4x" = "#283F79", "6x" = "#3DB168", "8x" = "#E05D0C"),
+  title_prefix = "\n\n Morphological traits by host ploidy level",
+  output_path = "../data/outputs_script1/1_Spores_dataset/1_EDA/violinplot_pannel_ploidy.pdf"
+)
+
+plot_violin_grouped(
+  data = spores_data_clean,
+  group_var = "Plo_pop",
+  group_colors = c("mon4x" = "#283F79", "can4x" = "#A277B3", 
+                   "cab6x" = "#3DB168", "can8x" = "#E05D0C"),
+  title_prefix = "\n\n Morphological traits by population x host ploidy level",
+  output_path = "../data/outputs_script1/1_Spores_dataset/1_EDA/violinplot_pannel_ploxpop.pdf"
+)
+
+```
+
+\newpage
+
+### Basic statistics
+
+```{r Basic statistics}
+
+# General statistics function (no grouping)
+BasicStatsGlobal <- function(data) {
+  data %>%
+    dplyr::select(where(is.numeric)) %>%
+    dplyr::select(where(~ any(. != floor(.)))) %>%
+    summarise(across(everything(), list(
+      Mean = ~ mean(., na.rm = TRUE),
+      Median = ~ median(., na.rm = TRUE),
+      SD = ~ sd(., na.rm = TRUE),
+      Min = ~ min(., na.rm = TRUE),
+      Max = ~ max(., na.rm = TRUE)
+    ), .names = "{.col}_{.fn}")) %>%
+    pivot_longer(everything(),
+                 names_to = c("Variable", "Statistic"),
+                 names_sep = "_",
+                 values_to = "Value") %>%
+    pivot_wider(names_from = "Statistic", values_from = "Value")
+}
+
+# Grouped statistics function
+BasicStatsGroupedLong <- function(data, group_vars) {
+  dec_vars <- data %>%
+    dplyr::select(where(is.numeric)) %>%
+    dplyr::select(where(~ any(. != floor(.)))) %>%
+    colnames()
+  
+  stats_long <- lapply(dec_vars, function(var) {
+    data %>%
+      group_by(across(all_of(group_vars))) %>%
+      summarise(
+        Mean = mean(.data[[var]], na.rm = TRUE),
+        Median = median(.data[[var]], na.rm = TRUE),
+        SD = sd(.data[[var]], na.rm = TRUE),
+        Min = min(.data[[var]], na.rm = TRUE),
+        Max = max(.data[[var]], na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      mutate(Variable = var)
+  }) %>%
+    bind_rows() %>%
+    relocate(Variable)
+  
+  return(stats_long)
+}
+
+# Run global analysis (all data, no grouping)
+global_stats <- BasicStatsGlobal(spores_data_clean)
+global_stats <- global_stats %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+
+# Run analysis grouped by Individual, population of origin, host ploidy level 
+# and the interaction of both
+ind_stats <- BasicStatsGroupedLong(spores_data_clean, group_vars = "Ind")
+ind_stats <- ind_stats %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+pop_stats <- BasicStatsGroupedLong(spores_data_clean, group_vars = "Pop")
+pop_stats <- pop_stats %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+ploidy_stats <- BasicStatsGroupedLong(spores_data_clean, group_vars = "Ploidy")
+ploidy_stats <- ploidy_stats %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+ploxpop_stats <- BasicStatsGroupedLong(spores_data_clean, group_vars = "Plo_pop")
+ploxpop_stats <- ploxpop_stats %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+# Create an excel file with five tabs (one per analysis)
+wb_stats <- createWorkbook()
+
+# Add formatted sheets using existing add_formatted_sheet()
+add_formatted_sheet(wb_stats, "Global_basicstats", global_stats)
+add_formatted_sheet(wb_stats, "Ind_basicstats", ind_stats)
+add_formatted_sheet(wb_stats, "Pop_basicstats", pop_stats)
+add_formatted_sheet(wb_stats, "Ploidy_basicstats", ploidy_stats)
+add_formatted_sheet(wb_stats, "PloxPop_basicstats", ploxpop_stats)
+
+# Save excel file with results into the associated output directory
+saveWorkbook(wb_stats, 
+             "../data/outputs_script1/1_Spores_dataset/1_EDA/basic_stats.xlsx", 
+             overwrite = TRUE)
+
+```
+
+\newpage
+
+### Data distribution 
+
+```{r Check normality of variables}
+
+# Function for conducting normality tests
+ShapiroTestGrouped <- function(data, group_vars, test_vars) {
+  data %>%
+    pivot_longer(cols = all_of(test_vars), names_to = "Variable", 
+                 values_to = "Value") %>%
+    group_by(across(all_of(group_vars)), Variable) %>%
+    summarise(
+      n = sum(!is.na(Value)),
+      statistic = tryCatch(shapiro.test(Value)$statistic, 
+                           error = function(e) NA_real_),
+      p_value = tryCatch(shapiro.test(Value)$p.value, 
+                         error = function(e) NA_real_),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      significance = ifelse(p_value > 0.05, "", "***")
+    )
+}
+
+# Automatically detect decimal (non-integer) numeric variables
+variables <- spores_data_clean %>%
+  dplyr::select(where(is.numeric)) %>%
+  dplyr::select(where(~ any(. != floor(.)))) %>%
+  colnames()
+
+# Test at individual level, considering population of origin, considering host 
+# ploidy level and considering host ploidy level x population
+shapiro_ind <- ShapiroTestGrouped(spores_data_clean, "Ind", variables)
+shapiro_pop <- ShapiroTestGrouped(spores_data_clean, "Pop", variables)
+shapiro_ploidy <- ShapiroTestGrouped(spores_data_clean, "Ploidy", variables)
+shapiro_plopop <- ShapiroTestGrouped(spores_data_clean, "Plo_pop", variables)
+
+# Create an excel file that will have four tabs (one per analysis)
+wb_norm <- createWorkbook()
+
+# Add formatted sheets using existing add_formatted_sheet()
+add_formatted_sheet(wb_norm, "Ind_Shapirotest", shapiro_ind)
+add_formatted_sheet(wb_norm, "Pop_Shapirotest", shapiro_pop)
+add_formatted_sheet(wb_norm, "Ploidy_Shapirotest", shapiro_ploidy)
+add_formatted_sheet(wb_norm, "Ploxpop_Shapirotest", shapiro_plopop)
+
+# Save excel file with results into the associated output directory
+saveWorkbook(wb_norm, 
+             "../data/outputs_script1/1_Spores_dataset/1_EDA/normality_tests.xlsx", 
+             overwrite = TRUE)
+
+```
+
+\newpage
+
+### Correlation among variables
+
+```{r Check correlation among variables}
+
+# Use previously defined 'variables' vector if available. If not, compute 
+# decimal-valued numeric variables
+if (!exists("variables")) {
+  variables <- spores_data_clean %>%
+    select(where(is.numeric)) %>%
+    select(where(~ any(. != floor(.)))) %>%
+    colnames()
+}
+
+# Select numeric columns from the data
+num_vars <- spores_data_clean %>%
+  dplyr::select(all_of(variables))
+
+# Compute correlation matrix (using pairwise complete obs)
+correlation_matrix <- as.data.frame(cor(num_vars, use = "complete.obs"))
+
+# Create workbook
+wb_corr <- createWorkbook()
+
+# Add formatted sheets using existing add_formatted_sheet() function
+add_formatted_sheet(wb_corr, "correlation_matrix", correlation_matrix)
+
+# Save excel file with the results
+saveWorkbook(wb_corr, 
+             "../data/outputs_script1/1_Spores_dataset/1_EDA/var_correlation.xlsx", 
+             overwrite = TRUE)
+
+```
+
+\newpage
+
+## Statistical analysis
+
+### PERMANOVA tests
+
+```{r PERMANOVA analysis}
+
+# Define morphometric variables
+morpho_vars <- c("conidW", "conidL", "conidA", "conidiophW", "conidiophL")
+
+# Define grouping factors
+grouping_factors <- c("Ind", "Pop", "Ploidy", "Plo_pop")
+
+# Open connection to write output
+sink("../data/outputs_script1/1_Spores_dataset/2_STAT/PERMANOVA_tests.txt")
+
+# Run all analyses and print results to file
+for (g in grouping_factors) {
+  df <- spores_data_clean %>%
+    dplyr::select(all_of(c(g, morpho_vars))) %>%
+    na.omit()
+  
+  if (nrow(df) == 0) {
+    cat("\n[", g, "] Dataset is empty after filtering.\n")
+    next
+  }
+
+  X <- df %>% dplyr::select(all_of(morpho_vars))
+  group <- df[[g]]
+  
+  cat("### PERMANOVA test for", g, "\n\n")
+  adonis_res <- adonis2(X ~ group, permutations = 10000, method = "euclidean")
+  print(adonis_res)
+  
+  cat("\n\n")
+  
+  cat("### Homogeneity of dispersion (PERMDISP) for", g)
+  disper <- betadisper(dist(X), group)
+  print(anova(disper))
+  
+  cat("\n\n\n\n")
+}
+
+# Close sink connection
+sink()
+
+```
+
+\newpage
+
+### Pairwise permutation tests
+
+```{r Pairwise permutation tests}
+
+# Define response variables
+response_variables <- c("conidW", "conidL", "conidA", "conidiophW", "conidiophL")
+
+# Define subsets (levels of Plo_pop)
+subsets <- c("mon4x", "can4x", "can8x", "cab6x")
+
+# Function to perform pairwise permutation tests
+pairwise_permutation <- function(data, response_vars, group) {
+  results_df <- data.frame()  # Initialize results data frame
+
+  # Iterate over each response variable
+  for (response in response_vars) {
+    groups <- unique(data[[group]])
+
+    # Compare each pair of groups
+    for (i in 1:(length(groups) - 1)) {
+      for (j in (i + 1):length(groups)) {
+        # Filter data for the two group levels
+        test_data <- data[data[[group]] %in% c(groups[i], groups[j]), ]
+
+        # Ensure valid data for the test
+        if (length(unique(test_data[[group]])) == 2 &&
+            length(unique(test_data[[response]])) > 1 &&
+            !all(is.na(test_data[[response]]))) {
+          
+          # Run permutation test
+          formula <- as.formula(paste(response, "~", group))
+          test <- oneway_test(formula, data = test_data,
+                              distribution = approximate(nresample = 10000))
+
+          # Save results
+          results_df <- rbind(results_df, data.frame(
+            Response = response,
+            Comparison = paste(groups[i], "vs", groups[j]),
+            P_value = pvalue(test)
+          ))
+        }
+      }
+    }
+  }
+
+  return(results_df)
+}
+
+# Initialize global results data frame
+global_permutation_results <- data.frame()
+
+# Run the test for each subset of Plo_pop
+for (sub in subsets) {
+  subset_data <- spores_data_clean[spores_data_clean$Plo_pop == sub, ]
+  
+  subset_results <- pairwise_permutation(subset_data, response_variables, "Ind")
+  subset_results$Population <- sub
+  
+  global_permutation_results <- rbind(global_permutation_results, subset_results)
+}
+
+# Adjust p-values (Holm method), reorder columns, and add significance marker
+global_permutation_results <- global_permutation_results %>%
+  dplyr::select(Response, Population, everything()) %>%
+  group_by(Population, Response) %>%
+  mutate(
+    p_value = round(as.numeric(P_value), 3),
+    Adj_P = round(as.numeric(p.adjust(P_value, method = "holm")), 3),
+    Significance = ifelse(Adj_P < 0.05, "***", "")
+  ) %>%
+  ungroup()
+
+# Rename column and reorder
+global_permutation_results <- global_permutation_results %>%
+  rename(Plo_pop = Population) %>%
+  dplyr::select(Plo_pop, Response, Comparison, p_value, Adj_P, Significance)
+
+# Apply the pairwise_permutation function considering population of origin
+pop_permutations_results <- pairwise_permutation(spores_data_clean, 
+                                                 response_variables,
+                                                 "Pop")
+
+# Correct or adjust p-values
+pop_permutations_results <- pop_permutations_results %>%
+  mutate(
+    p_value = round(as.numeric(P_value), 3),
+    Adj_P = round(as.numeric(p.adjust(P_value, method = "holm")), 3),
+    Significance = ifelse(Adj_P < 0.05, "***", "")
+  ) %>%
+  dplyr::select(Response, Comparison, p_value, Adj_P, Significance)
+
+# Apply the pairwise_permutation function considering host's ploidy level
+plo_permutations_results <- pairwise_permutation(spores_data_clean, 
+                                                response_variables,
+                                                "Ploidy")
+
+# Correct or adjust p-values and flag significance
+plo_permutations_results <- plo_permutations_results %>%
+  mutate(
+    p_value = round(as.numeric(P_value), 3),
+    Adj_P = round(as.numeric(p.adjust(P_value, method = "holm")), 3),
+    Significance = ifelse(Adj_P < 0.05, "***", "")
+  ) %>%
+  dplyr::select(Response, Comparison, p_value, Adj_P, Significance)
+
+# Apply the pairwise_permutation function considering population of origin and 
+# host ploidy level
+plopop_permutations_results <- pairwise_permutation(spores_data_clean, 
+                                                    response_variables,
+                                                    "Plo_pop")
+
+# Adjust p-values and indicate significance
+plopop_permutations_results <- plopop_permutations_results %>%
+  mutate(
+    p_value = round(as.numeric(P_value), 3),
+    Adj_P   = round(as.numeric(p.adjust(P_value, method = "holm")), 3),
+    Significance = ifelse(Adj_P < 0.05, "***", "")
+  ) %>%
+  dplyr::select(Response, Comparison, p_value, Adj_P, Significance)
+
+# Create Excel file with the pairwise permutation tests
+wb_pairper <- createWorkbook()
+
+# Add formatted sheets using existing add_formatted_sheet() function
+add_formatted_sheet(wb_pairper, "Ind_pairwise_permutations", 
+                    global_permutation_results)
+add_formatted_sheet(wb_pairper, "Pop_pairwise_permutations", 
+                    pop_permutations_results)
+add_formatted_sheet(wb_pairper, "Ploidy_pairwise_permutations", 
+                    plo_permutations_results)
+add_formatted_sheet(wb_pairper, "PloPop_pairwise_permutations", 
+                    plopop_permutations_results)
+
+# Save the Excel file
+saveWorkbook(wb_pairper,
+             "../data/outputs_script1/1_Spores_dataset/2_STAT/pairwise_permutation_tests.xlsx", 
+             overwrite = TRUE)
+
+```
+
+\newpage
+
+## Complementary multivariate analyses
+
+### Principal Component Analysis (PCA)
+
+```{r PCA analyses considering all datasets}
+
+# Select morphological variables of interest in the complete dataset (n = 469)
+data_pca <- spores_data_clean[, c("conidW", "conidL", "conidA", "conidiophL")]
+
+# Standardize the data
+data_pca_scaled <- scale(data_pca)
+
+# Run PCA (without graphical output)
+pca_results <- PCA(data_pca_scaled, graph = FALSE)
+
+# Extract and rename eigenvalues and explained variance
+eigvar_pca <- as.data.frame(round(pca_results$eig, 3))
+colnames(eigvar_pca) <- c("Eigenvalue", "Variance(%)", "Cumul_variance(%)")
+
+
+# Compute mean values per replicate or plate (Rep_ind; n = 48)
+mean_per_plate <- spores_data_clean %>%
+  group_by(Plo_pop, Pop, Ploidy, Rep_ind) %>%
+  summarise(
+    conidW = mean(conidW, na.rm = TRUE),
+    conidL = mean(conidL, na.rm = TRUE),
+    conidA = mean(conidA, na.rm = TRUE),
+    conidiophW = mean(conidiophW, na.rm = TRUE),
+    conidiophL = mean(conidiophL, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Select morphological variables for PCA
+data_pca1 <- mean_per_plate[, c("conidW", "conidL", "conidA", "conidiophL")]
+
+# Standardize the data
+data_pca_scaled1 <- scale(data_pca1)
+
+# Perform PCA without plotting
+pca_results1 <- PCA(data_pca_scaled1, graph = FALSE)
+
+# Extract and format eigenvalues
+eigvar_pca1 <- as.data.frame(round(pca_results1$eig, 3))
+colnames(eigvar_pca1) <- c("Eigenvalue", "Variance(%)", "Cumul_variance(%)")
+
+
+# Compute mean values per individual (Ind; n = 16)
+mean_per_Ind <- spores_data_clean %>%
+  group_by(Plo_pop, Pop, Ploidy, Ind) %>%
+  summarise(
+    conidW = mean(conidW, na.rm = TRUE),
+    conidL = mean(conidL, na.rm = TRUE),
+    conidA = mean(conidA, na.rm = TRUE),
+    conidiophW = mean(conidiophW, na.rm = TRUE),
+    conidiophL = mean(conidiophL, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Select morphological variables for PCA
+data_pca2 <- mean_per_Ind[, c("conidW", "conidL", "conidA", "conidiophL")]
+
+# Standardize the data
+data_pca_scaled2 <- scale(data_pca2)
+
+# Perform PCA
+pca_results2 <- PCA(data_pca_scaled2, graph = FALSE)
+
+# Extract and format eigenvalues
+eigvar_pca2 <- as.data.frame(round(pca_results2$eig, 3))
+colnames(eigvar_pca2) <- c("Eigenvalue", "Variance(%)", "Cumul_variance(%)")
+
+# Add PC labels as a column
+eigvar_pca   <- cbind(PC = paste0("PC", 1:nrow(eigvar_pca)), eigvar_pca)
+eigvar_pca1  <- cbind(PC = paste0("PC", 1:nrow(eigvar_pca1)), eigvar_pca1)
+eigvar_pca2  <- cbind(PC = paste0("PC", 1:nrow(eigvar_pca2)), eigvar_pca2)
+
+# Create excel file to save the eignenvalues and variances calculated for the PCAs
+wb_pcaeigvar <- createWorkbook()
+
+# Add formatted sheets using existing helper
+add_formatted_sheet(wb_pcaeigvar, "PCA_all_observations", eigvar_pca)
+add_formatted_sheet(wb_pcaeigvar, "PCA_mean_per_plate", eigvar_pca1)
+add_formatted_sheet(wb_pcaeigvar, "PCA_mean_per_individual", eigvar_pca2)
+
+# Save the Excel file
+saveWorkbook(wb_pcaeigvar, 
+             "../data/outputs_script1/1_Spores_dataset/3_PCA/PCA_eig&var.xlsx",
+             overwrite = TRUE)
+
+```
+
+
+```{r PCA statistical analysis considering all datasets}
+
+# Statistical analysis for the ungrouped dataset (n = 469)
+# Extract loadings
+loadings_all <- as.data.frame(pca_results$var$coord)
+loadings_all <- loadings_all %>%
+  tibble::rownames_to_column(var = "Variable")
+
+# Extract scores
+scores_all <- as.data.frame(pca_results$ind$coord)
+scores_all$Pop <- spores_data_clean$Pop
+scores_all$Ploidy <- spores_data_clean$Ploidy
+scores_all <- scores_all %>%
+  tibble::rownames_to_column(var = "Individual") %>%
+  dplyr::select(Individual, Pop, Ploidy, Dim.1, Dim.2, Dim.3, Dim.4)
+
+# Conduct lineal models on PC1 and PC2
+model_PC1_all <- lm(Dim.1 ~ Pop + Ploidy, data = scores_all)
+model_PC2_all <- lm(Dim.2 ~ Pop + Ploidy, data = scores_all)
+
+
+# Statistical analysis for the dataset grouped by mean per plate (n = 48)
+# Extract loadings
+loadings_plate <- as.data.frame(pca_results1$var$coord)
+loadings_plate <- loadings_plate %>%
+  tibble::rownames_to_column(var = "Variable")
+
+# Extract scores
+scores_plate <- as.data.frame(pca_results1$ind$coord)
+scores_plate$Pop <- mean_per_plate$Pop
+scores_plate$Ploidy <- mean_per_plate$Ploidy
+scores_plate <- scores_plate %>%
+  mutate(Rep_ind = mean_per_plate$Rep_ind) %>%
+  dplyr::select(Rep_ind, Pop, Ploidy, Dim.1, Dim.2, Dim.3, Dim.4)
+
+# Conduct lineal models on PC1 and PC2
+model_PC1_plate <- lm(Dim.1 ~ Pop + Ploidy, data = scores_plate)
+model_PC2_plate <- lm(Dim.2 ~ Pop + Ploidy, data = scores_plate)
+
+
+# Statistical analysis for the dataset grouped by mean per individual (n = 16)
+# Extract loadings
+loadings_ind <- as.data.frame(pca_results2$var$coord)
+loadings_ind <- loadings_ind %>%
+  tibble::rownames_to_column(var = "Variable")
+
+# Extract scores
+scores_ind <- as.data.frame(pca_results2$ind$coord)
+scores_ind$Pop <- mean_per_Ind$Pop
+scores_ind$Ploidy <- mean_per_Ind$Ploidy
+scores_ind <- scores_ind %>%
+  mutate(Ind = mean_per_Ind$Ind) %>%
+  dplyr::select(Ind, Pop, Ploidy, Dim.1, Dim.2, Dim.3, Dim.4)
+
+# Conduct lineal models on PC1 and PC2
+model_PC1_ind <- lm(Dim.1 ~ Pop + Ploidy, data = scores_ind)
+model_PC2_ind <- lm(Dim.2 ~ Pop + Ploidy, data = scores_ind)
+
+
+# Function to extract ANOVA tables by PC axis
+extract_anova <- function(data, dataset_name) {
+  data$Pop <- as.factor(data$Pop)
+  data$Ploidy <- as.factor(data$Ploidy)
+  
+  pcs <- list("PC1" = "Dim.1", "PC2" = "Dim.2")
+  results <- list()
+  
+  for (pc in names(pcs)) {
+    formula <- as.formula(paste(pcs[[pc]], "~ Pop * Ploidy"))
+    model <- aov(formula, data = data)
+    table <- summary(model)[[1]]
+    
+    result <- as.data.frame(table)
+    result$Predictor <- rownames(table)
+    result$Dataset <- dataset_name
+    result$PC <- pc
+    rownames(result) <- NULL
+    results[[pc]] <- result[, c("Dataset", "PC", "Predictor", "Df", "F value", "Pr(>F)")]
+  }
+  
+  do.call(rbind, results)
+}
+
+# Run ANOVA extraction for all three PCAs
+anova_all <- extract_anova(scores_all, "All observations")
+anova_plate <- extract_anova(scores_plate, "Mean per plate")
+anova_ind <- extract_anova(scores_ind, "Mean per individual")
+
+# Combine all ANOVA tables
+anova_combined <- bind_rows(anova_all, anova_plate, anova_ind)
+
+# Rename for consistency
+colnames(anova_combined) <- c("Dataset", "PC", "Predictor", "Df", "F", "p-value")
+
+# Round numeric columns and ensure types
+anova_combined <- anova_combined %>%
+  mutate(
+    F = round(as.numeric(F), 3),
+    `p-value` = round(as.numeric(`p-value`), 3),
+    Df = as.integer(Df)
+  )
+
+# Save the loadings of all three PCAs into an excel file
+wb_pcaloadings <- createWorkbook()
+
+# Add formatted sheets using existing add_formatted_sheet() function
+add_formatted_sheet(wb_pcaloadings, "All_observations_loadings", loadings_all)
+add_formatted_sheet(wb_pcaloadings, "Mean_per_plate_loadings", loadings_plate)
+add_formatted_sheet(wb_pcaloadings, "Mean_per_individual_loadings", loadings_ind)
+
+# Save excel file
+saveWorkbook(wb_pcaloadings, 
+             "../data/outputs_script1/1_Spores_dataset/3_PCA/PCA_loadings.xlsx", 
+             overwrite = TRUE)
+
+# Save scores of all three PCAs into an excel file
+wb_pcascores <- createWorkbook()
+
+# Add formatted sheets using existing add_formatted_sheet() function
+add_formatted_sheet(wb_pcascores, "All_observations_scores", scores_all)
+add_formatted_sheet(wb_pcascores, "Mean_per_plate_scores", scores_plate)
+add_formatted_sheet(wb_pcascores, "Mean_per_individual_scores", scores_ind)
+
+# Save excel file
+saveWorkbook(wb_pcascores, 
+             "../data/outputs_script1/1_Spores_dataset/3_PCA/PCA_scores.xlsx", 
+             overwrite = TRUE)
+
+
+# Create workbook for ANOVA summary
+wb_pcaanova <- createWorkbook()
+
+# Add formatted sheets using existing add_formatted_sheet() function
+add_formatted_sheet(wb_pcaanova, "PCA_ANOVA_results", anova_combined)
+
+# Save excel file
+saveWorkbook(wb_pcaanova, 
+             "../data/outputs_script1/1_Spores_dataset/3_PCA/PCA_ANOVAs.xlsx", 
+             overwrite = TRUE)
+
+```
+
+
+
+\newpage
+
+```{r PCA plots considering all datasets}
+
+# Define color palettes
+custom_colors_pop <- c("mon" = "#283F79", "cab" = "#3DB168",  "can" = "#581E1E")
+custom_colors_ploidy <- c("4x" = "#283F79", "6x" = "#3DB168",  "8x" = "#E05D0C")
+custom_colors_plopop <- c("mon4x" = "#283F79", "can4x" = "#A277B3", 
+                   "cab6x" = "#3DB168", "can8x" = "#E05D0C")
+
+# Extract PCA coordinates
+pca_df  <- as.data.frame(get_pca_ind(pca_results)$coord)
+pca_df1 <- as.data.frame(get_pca_ind(pca_results1)$coord)
+pca_df2 <- as.data.frame(get_pca_ind(pca_results2)$coord)
+
+# Create a function to generate the PCAs
+plot_pca_group <- function(data, group_vector, color_palette, title, eig_table) {
+  data$Group <- group_vector
+  
+  # Extract variances (PC1 y PC2)
+  pc1_var <- eig_table[1, 3]
+  pc2_var <- eig_table[2, 3]
+  
+  # Calculate centroids
+  centroids <- data %>%
+    group_by(Group) %>%
+    summarise(
+      Dim.1 = mean(Dim.1),
+      Dim.2 = mean(Dim.2),
+      .groups = "drop"
+    )
+  
+  # Create PCA plots
+  ggplot(data, aes(x = Dim.1, y = Dim.2, fill = Group, color = Group)) +
+    geom_point(shape = 21, size = 1, alpha = 0.9) +
+    stat_ellipse(type = "norm", geom = "polygon", alpha = 0.1, size = 0.2) +
+    geom_point(data = centroids, aes(x = Dim.1, y = Dim.2, fill = Group), 
+               shape = 24, size = 1.5, color = "black", stroke = 0.5) +
+    scale_fill_manual(values = color_palette) +
+    scale_color_manual(values = color_palette) +
+    labs(
+      title = title,
+      x = paste0("PC1 (", pc1_var, "%)"),
+      y = paste0("PC2 (", pc2_var, "%)")
+    ) +
+    coord_fixed(ratio = 1) +
+    theme_minimal(base_size = 8) +
+    theme(
+      plot.title = element_text(size = 9, hjust = 0.5),
+      legend.position = "none",
+      axis.title = element_text(size = 7),
+      axis.text = element_text(size = 6),
+      axis.line = element_line(linewidth = 0.3, color = "black")
+    )
+}
+
+
+# Save PCAs considering all datasets and grouping factors
+pca1 <- plot_pca_group(pca_df, spores_data_clean$Pop, custom_colors_pop,
+                       "PCA: Population (n = 469)", eigvar_pca)
+pca2 <- plot_pca_group(pca_df1, mean_per_plate$Pop, custom_colors_pop,
+                       "PCA: Population (n = 48)", eigvar_pca1)
+pca3 <- plot_pca_group(pca_df2, mean_per_Ind$Pop, custom_colors_pop,
+                       "PCA: Population (n = 16)", eigvar_pca2)
+pca4 <- plot_pca_group(pca_df, spores_data_clean$Ploidy, custom_colors_ploidy,
+                       "PCA: Host ploidy level (n = 469)", eigvar_pca)
+pca5 <- plot_pca_group(pca_df1, mean_per_plate$Ploidy, custom_colors_ploidy,
+                       "PCA: Host ploidy level (n = 48)", eigvar_pca1)
+pca6 <- plot_pca_group(pca_df2, mean_per_Ind$Ploidy, custom_colors_ploidy,
+                       "PCA: Host ploidy level (n = 16)", eigvar_pca2)
+pca7 <- plot_pca_group(pca_df, spores_data_clean$Plo_pop, custom_colors_plopop,
+                       "PCA: Population × Host ploidy level (n = 469)", eigvar_pca)
+pca8 <- plot_pca_group(pca_df1, mean_per_plate$Plo_pop, custom_colors_plopop,
+                       "PCA: Population × Host ploidy level (n = 48)", eigvar_pca1)
+pca9 <- plot_pca_group(pca_df2, mean_per_Ind$Plo_pop, custom_colors_plopop,
+                       "PCA: Population × Host ploidy level (n = 16)", eigvar_pca2)
+
+# Create a panel image (layout 3x3)
+grid_all <- (pca1 | pca2 | pca3) /
+            (pca4 | pca5 | pca6) /
+            (pca7 | pca8 | pca9) +
+            plot_annotation(
+              theme = theme(plot.caption = element_text(hjust = 0.5, size = 10))
+            )
+
+# Save each PCA individually
+plots <- list(pca1, pca2, pca3, pca4, pca5, pca6, pca7, pca8, pca9)
+names(plots) <- paste0("PCA", 1:9)
+
+for (i in seq_along(plots)) {
+  ggsave(paste0("../data/outputs_script1/1_Spores_dataset/3_PCA/", 
+                names(plots)[i], ".pdf"), 
+         plot = plots[[i]], width = 4, height = 3.8, units = "in", dpi = 300)
+}
+
+```
+
+
+\newpage
+
+### Linear Discriminant Analysis (LDA)
+
+```{r LDA statistical analysis considering all datasets}
+
+# Define grouping settings
+groupings <- list(
+  Pop = list(color = custom_colors_pop, label = "Population"),
+  Ploidy = list(color = custom_colors_ploidy, label = "Host ploidy level"),
+  Plo_pop = list(color = custom_colors_plopop,  
+                 label = "Population × Host ploidy level")
+)
+
+# Define aggregation levels
+datasets <- list(
+  All = spores_data_clean,
+  Plate = mean_per_plate,
+  Ind = mean_per_Ind
+)
+
+# Morphological variables to use
+morpho_vars <- c("conidW", "conidL", "conidiophL", "conidiophW", "conidA")
+
+# Function to run LDA and return model, plot, metrics
+run_lda <- function(df, group_col, colors, label) {
+  df[[group_col]] <- as.factor(df[[group_col]])
+  formula <- as.formula(paste(group_col, "~", paste(morpho_vars, collapse = "+")))
+  
+  lda_model <- lda(formula, data = df)
+  predictions <- predict(lda_model)
+  results <- data.frame(df, Predicted = predictions$class)
+  conf_matrix <- confusionMatrix(results$Predicted, df[[group_col]])
+  
+  cv_model <- train(
+    formula,
+    data = df,
+    method = "lda",
+    trControl = trainControl(method = "LOOCV")
+  )
+  
+  lda_df <- data.frame(predictions$x, Group = df[[group_col]])
+  centroids <- lda_df %>%
+    group_by(Group) %>%
+    summarise(LD1 = mean(LD1), LD2 = mean(LD2), .groups = "drop")
+  
+  plot <- ggplot() +
+    geom_point(data = lda_df, aes(x = LD1, y = LD2, color = Group, fill = Group),
+               size = 1.8, alpha = 0.9) +
+    geom_point(data = centroids, aes(x = LD1, y = LD2, fill = Group),
+               shape = 24, size = 2.5, color = "black", stroke = 0.4) +
+    coord_fixed() +
+    theme_minimal(base_size = 8) +
+    theme(
+      plot.title = element_text(size = 9, hjust = 0.5),
+      legend.position = "none",
+      axis.title = element_text(size = 7),
+      axis.text = element_text(size = 6),
+      axis.line = element_line(color = "black", linewidth = 0.3)
+    ) +
+    scale_color_manual(values = colors) +
+    scale_fill_manual(values = colors) +
+    labs(title = paste("LDA:", label), x = "LD1", y = "LD2")
+  
+  list(
+    model = lda_model,
+    predictions = predictions,
+    confusion = conf_matrix,
+    cv = cv_model,
+    plot = plot
+  )
+}
+
+# Apply LDA to all grouping/aggregation combinations
+lda_results <- list()
+
+for (group in names(groupings)) {
+  for (level in names(datasets)) {
+    df <- datasets[[level]] %>%
+      dplyr::select(all_of(morpho_vars), !!sym(group))
+    
+    label <- paste(groupings[[group]]$label, "(n =", nrow(df), ")")
+    
+    lda_results[[paste(group, level, sep = "_")]] <- run_lda(
+      df = df,
+      group_col = group,
+      colors = groupings[[group]]$color,
+      label = label
+    )
+  }
+}
+
+
+# Save all LDA statistics in a .txt file
+sink("../data/outputs_script1/1_Spores_dataset/4_LDA/LDA_results_summary.txt")
+
+# Loop through results
+for (name in names(lda_results)) {
+  res <- lda_results[[name]]
+  grouping <- sub("_[^_]+$", "", name)
+  level <- sub("^.*_", "", name)
+  
+  dataset_label <- switch(level,
+    "All"   = "All observations (n = 469)",
+    "Plate" = "Mean per plate (n = 48)",
+    "Ind"   = "Mean per individual (n = 16)"
+  )
+  
+  grouping_label <- groupings[[grouping]]$label
+  
+  modelsummary <- res$model
+  confusion <- res$confusion$table
+  overall <- res$confusion$overall
+  loocv <- res$cv$results[, c("Accuracy", "Kappa")]
+  
+  cat("### LDA model", dataset_label, " | ", grouping_label, "\n\n")
+  
+  cat(">> Model summary <<\n\n")
+  print(modelsummary)
+  
+  cat("\n>> Confusion Matrix <<\n\n")
+  print(confusion)
+  
+  cat("\n>> Classification Statistics <<\n\n")
+  for (stat_name in names(overall)) {
+    cat(sprintf("%-20s %.3f\n", stat_name, overall[[stat_name]]))
+  }
+
+  cat("\n>> Cross-validation (LOOCV) <<\n\n")
+  for (stat_name in colnames(loocv)) {
+    cat(sprintf("%-20s %.3f\n", stat_name, loocv[[stat_name]]))
+  }
+
+  cat("\n\n\n\n")
+}
+
+# Save document
+sink()
+
+```
+
+```{r LDA plots considering all datasets}
+
+# Extract lda plots
+lda1 <- lda_results$Pop_All$plot
+lda2 <- lda_results$Ploidy_All$plot
+lda3 <- lda_results$Plo_pop_All$plot
+lda4 <- lda_results$Pop_Plate$plot
+lda5 <- lda_results$Ploidy_Plate$plot
+lda6 <- lda_results$Plo_pop_Plate$plot
+lda7 <- lda_results$Pop_Ind$plot
+lda8 <- lda_results$Ploidy_Ind$plot
+lda9 <- lda_results$Plo_pop_Ind$plot
+
+# Save each LDA individually as a PDF file
+plots <- list(lda1, lda2, lda3, lda4, lda5, lda6, lda7, lda8, lda9)
+names(plots) <- paste0("LDA", 1:9)
+for (i in seq_along(plots)) {
+  ggsave(paste0("../data/outputs_script1/1_Spores_dataset/4_LDA/", names(plots)[i], ".pdf"), 
+         plot = plots[[i]], width = 4, height = 3.8, units = "in", dpi = 300)
+}
+
+```
+
+\newpage
+
+# Analysis of the growth rate of _Epichloë_ cultures on potato dextrose agar (PDA)
+
+## Load, explore & mutate dataset
+
+```{r Data set load, exploration and transformation}
+
+# Load dataset into working session
+growth_data <- read.table("../data/culture_growth_dataset.csv", dec = ",", sep = ";",
+                          header = TRUE, row.names = 1)
+
+# Creating new variables 'Rep_ind' and "Plo_pop" for further analyses
+growth_data <- growth_data %>%
+  mutate(Rep_ind = paste(Ind, Rep, sep = "-")) %>%
+  mutate(Plo_pop = paste(Pop, Ploidy, sep = "")) 
+
+# Create new variables
+growth_data <- growth_data %>%
+  mutate(Rep_ind = paste(Ind, Rep, sep = "-"),
+         Plo_pop = paste(Pop, Ploidy, sep = ""),
+         Day = as.factor(Day),
+         Ind = as.factor(Ind),
+         Rep = as.factor(Rep),
+         Pop = as.factor(Pop),
+         Ploidy = as.factor(Ploidy),
+         Rep_ind = as.factor(Rep_ind),
+         Plo_pop = as.factor(Plo_pop))
+
+```
+
+```{r Outliers detection and removal (IQR method)}
+
+# Remove outliers using IQR method within each Day × Plo_pop group
+growth_data_clean <- growth_data %>%
+  group_by(Day, Plo_pop) %>%
+  mutate(
+    Q1 = quantile(Diameter, 0.25),
+    Q3 = quantile(Diameter, 0.75),
+    IQR = Q3 - Q1,
+    lower = Q1 - 1.5 * IQR,
+    upper = Q3 + 1.5 * IQR
+  ) %>%
+  ungroup() %>%
+  filter(Diameter >= lower & Diameter <= upper)
+
+```
+
+\newpage
+
+## Computation of Growth rate Mixed-effects model fitting
+
+```{r Growth rate computation}
+
+# Compute individual growth rate between D0 and D24 (in mm/day)
+growth_D0 <- growth_data_clean %>% filter(Day == "D0") %>%
+  dplyr::select(Rep_ind, Diameter_D0 = Diameter)
+
+growth_D24 <- growth_data_clean %>% filter(Day == "D24") %>%
+  dplyr::select(Rep_ind, Diameter_D24 = Diameter)
+
+growth_summary <- left_join(growth_D0, growth_D24, by = "Rep_ind") %>%
+  mutate(GR = (Diameter_D24 - Diameter_D0) / 24) %>%
+  left_join(
+    growth_data_clean %>%
+      dplyr::select(Rep_ind, Ind, Ploidy, Pop, Plo_pop, Rep) %>%
+      distinct(),
+    by = "Rep_ind"
+  )
+
+```
+
+```{r Mixed-effects model fitting and diagnostics}
+
+# Mixed-effects model considering Individuals
+model_ind <- lmer(GR ~ Ind + (1 | Rep), data = growth_summary)
+
+# Mixed-effects model considering Population of origin
+model_pop <- lmer(GR ~ Pop + (1 | Ind), data = growth_summary)
+
+# Mixed-effects model considering Host ploidy level
+model_ploidy <- lmer(GR ~ Ploidy + (1 | Ind), data = growth_summary)
+
+# Mixed-effects model considering the interaction of both factors
+model_inter <- lmer(GR ~ Plo_pop + (1 | Ind), data = growth_summary)
+
+# Save Mixed-effects models into a .txt file
+sink("../data/outputs_script1/2_Culture_growth_dataset/lme_results.txt")
+
+# Create document internal structure
+cat(">>> Mixed-effects model considering Individuals <<<\n\n")
+print(anova(model_ind))
+cat("\nPost-hoc test (Tukey):\n")
+print(emmeans(model_ind, pairwise ~ Ind, adjust = "tukey"))
+
+cat("\n>>> Mixed-effects model considering Population of origin <<<\n\n")
+print(anova(model_pop))
+cat("\nPost-hoc test (Tukey):\n")
+print(emmeans(model_pop, pairwise ~ Pop, adjust = "tukey"))
+
+cat("\n\n>>> Mixed-effects model considering Host ploidy level <<<\n\n")
+print(anova(model_ploidy))
+cat("\nPost-hoc test (Tukey):\n")
+print(emmeans(model_ploidy, pairwise ~ Ploidy, adjust = "tukey"))
+
+cat("\n\n>>> Mixed-effects model: Population × Ploidy <<<\n\n")
+print(anova(model_inter))
+cat("\nPost-hoc test (Tukey):\n")
+print(emmeans(model_inter, pairwise ~ Plo_pop, adjust = "tukey"))
+
+# Save document
+sink()
+
+# Save diagnostic plots in a PDF file
+pdf("../data/outputs_script1/2_Culture_growth_dataset/lme_diagnostics.pdf", width = 8, 
+    height = 10)
+
+par(mfrow = c(4, 2))
+
+plot(resid(model_ind), main = "Residuals: Individual model")
+qqnorm(resid(model_ind)); qqline(resid(model_ind))
+
+plot(resid(model_pop), main = "Residuals: Population model")
+qqnorm(resid(model_pop)); qqline(resid(model_pop))
+
+plot(resid(model_ploidy), main = "Residuals: Ploidy model")
+qqnorm(resid(model_ploidy)); qqline(resid(model_ploidy))
+
+plot(resid(model_inter), main = "Residuals: Population × Ploidy model")
+qqnorm(resid(model_inter)); qqline(resid(model_inter))
+
+# Close the PDF device
+invisible(dev.off())
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+
+```
+
+```{r End of script}
+
+# Message announcing the end of the script and where to find the output files
+cat("\n✅ Script executed successfully.\n\nAll output files are available in 'FrothEpi_Github/Fungal_endophyte/data/outputs_script1 \nwithin the GitHub repository downloaded by the user.\n")
+
+```
