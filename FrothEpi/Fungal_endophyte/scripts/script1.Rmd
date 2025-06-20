@@ -1032,7 +1032,14 @@ run_lda <- function(df, group_col, colors, label) {
     summarise(LD1 = mean(LD1), LD2 = mean(LD2), .groups = "drop")
   
   plot <- ggplot() +
-    geom_point(data = lda_df, aes(x = LD1, y = LD2, color = Group, fill = Group),
+    stat_ellipse(
+      data = lda_df,
+      aes(x = LD1, y = LD2, fill = Group, color = Group),
+      geom = "polygon",
+      alpha = 0.05,
+      linewidth = 0.3
+    ) +
+    geom_point(data = lda_df, aes(x = LD1, y = LD2, color = Group),
                size = 1.8, alpha = 0.9) +
     geom_point(data = centroids, aes(x = LD1, y = LD2, fill = Group),
                shape = 24, size = 2.5, color = "black", stroke = 0.4) +
