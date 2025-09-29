@@ -68,7 +68,7 @@ done
 ##########################################
 
 # Concatenate all .treefile files into one
-> Concat_5genes.trees  # Empty the file first
+> Concat_5genes.trees
 for GENE in "${GENES[@]}"; do
   cat "MSA_${GENE}_UFBoot1000.treefile" >> Concat_5genes.trees
 done
@@ -108,6 +108,6 @@ iq2 -te MSA_concat_UFBoot1000.treefile \
 
 
 
-    #####################
-    ### END OF SCRIPT ###
-    #####################
+#####################
+### END OF SCRIPT ###
+#####################
