@@ -67,18 +67,17 @@ for aln_file in "$ALIGNMENTS_DIR"/*.fasta; do
 
         # Output file name
         output_file="${aln_base}_vs_${db_name}.txt"
-
         echo "Running BLAST for $aln_base against $db_name..."
 
         # If the alignment is "MSA_tef1_rmv.fasta", run without "-qcov_hsp_perc 100"
         if [[ "$aln_name" == "$EXCLUDED_ALIGNMENT" ]]; then
             /SOFT/blast/ncbi-blast-2.14.0+/bin/blastn -query "$aln_file" -db "$db_file" \
             -out "$output_file" -outfmt 6
-            echo "❗ Executed without -qcov_hsp_perc 100 for $aln_name"
+            echo "Executed without -qcov_hsp_perc 100 for $aln_name"
         else
             /SOFT/blast/ncbi-blast-2.14.0+/bin/blastn -query "$aln_file" -db "$db_file" \
             -out "$output_file" -outfmt 6 -qcov_hsp_perc 100
-            echo "✅ Executed with -qcov_hsp_perc 100 for $aln_name"
+            echo "Executed with -qcov_hsp_perc 100 for $aln_name"
         fi
 
         echo "Result saved to $output_file"
@@ -94,10 +93,10 @@ done
 ### STEP 2 ###
 ##############
 
-# Database (genomes) and BLAST results directories
+# Database (genomes), BLAST results and DB directories
 DB_DIR="./Reference_genomes_NCBI"
 BLAST_RESULTS_DIR="./Blast_Results"
-OUTPUT_DB_DIR="./Extracted_DB_Sequences"  # Folder to store DB sequences
+OUTPUT_DB_DIR="./Extracted_DB_Sequences"
 
 # Create output folder if it does not exist
 mkdir -p "$OUTPUT_DB_DIR"
@@ -105,11 +104,11 @@ mkdir -p "$OUTPUT_DB_DIR"
 # Loop through all BLAST files in each subfolder
 for BLAST_FILE in "$BLAST_RESULTS_DIR"/*/*.txt; do
     if [[ ! -s "$BLAST_FILE" ]]; then
-        echo "⚠️  Skipping empty file: $BLAST_FILE"
+        echo "Skipping empty file: $BLAST_FILE"
         continue
     fi
 
-    echo "🔍 Analyzing: $BLAST_FILE"
+    echo "Analyzing: $BLAST_FILE"
 
     # Extract exact database name from BLAST file name
     GENOME_DB=$(basename "$BLAST_FILE" | sed -E 's/^.*_vs_([^/]+)\.txt$/\1/')
@@ -121,7 +120,7 @@ for BLAST_FILE in "$BLAST_RESULTS_DIR"/*/*.txt; do
     GENOME_PATH="$DB_DIR/$GENOME_DB.fna"
 
     if [[ ! -f "$GENOME_PATH" ]]; then
-        echo "❌ Error: Genome file '$GENOME_PATH' not found for BLAST results!"
+        echo "Error: Genome file '$GENOME_PATH' not found for BLAST results!"
         continue
     fi
 
@@ -131,9 +130,10 @@ for BLAST_FILE in "$BLAST_RESULTS_DIR"/*/*.txt; do
         samtools faidx "$GENOME_PATH"
     fi
 
-    # Define the unique output file for all extracted sequences
+    # Define the unique output file for all extracted sequences and 
+    # clear file before writing
     OUTPUT_FASTA="$OUTPUT_DB_DIR/${ALIGNMENT_NAME}_vs_${GENOME_DB}.fasta"
-    > "$OUTPUT_FASTA"  # Clear file before writing
+    > "$OUTPUT_FASTA"
 
     # Temporary file to check for redundant regions
     TEMP_COORDS="temp_coords.txt"
@@ -162,14 +162,14 @@ for BLAST_FILE in "$BLAST_RESULTS_DIR"/*/*.txt; do
         UNIQUE_COORD=$(sort "$TEMP_COORDS" | uniq | head -n1)
         echo ">${ALIGNMENT_NAME}_${GENOME_DB}_${UNIQUE_COORD}" >> "$OUTPUT_FASTA"
         samtools faidx "$GENOME_PATH" "$UNIQUE_COORD" >> "$OUTPUT_FASTA"
-        echo "✔️ Only one unique sequence saved for $BLAST_FILE"
+        echo "Only one unique sequence saved for $BLAST_FILE"
     else
         # If there are multiple regions, save each one separately
         sort "$TEMP_COORDS" | uniq | while read COORD_ID; do
             echo ">${ALIGNMENT_NAME}_${GENOME_DB}_${COORD_ID}" >> "$OUTPUT_FASTA"
             samtools faidx "$GENOME_PATH" "$COORD_ID" >> "$OUTPUT_FASTA"
         done
-        echo "✔️ All unique sequences saved for $BLAST_FILE"
+        echo "All unique sequences saved for $BLAST_FILE"
     fi
 
     echo "-------------------------------------------------"
@@ -179,24 +179,24 @@ for BLAST_FILE in "$BLAST_RESULTS_DIR"/*/*.txt; do
 
 done
 
-echo "✅ Extraction complete! All DB sequences saved in $OUTPUT_DB_DIR/"
+echo "Extraction complete! All DB sequences saved in $OUTPUT_DB_DIR/"
 
 # Check which files contain more than one sequence and move those files to a new directory
 # Create the "repeated" directory if it does not exist
 mkdir -p Extracted_DB_Sequences/repeated
 
 for fasta_file in Extracted_DB_Sequences/*.fasta; do
-    if [[ -s "$fasta_file" ]]; then  # Check if the file is not empty
-        count=$(tail -n +2 "$fasta_file" | grep -c "^>")  # Ignore the first line and count ">"
-        real_count=$(( (count + 1) / 2 ))  # Every two ">" represent a single sequence
-        if [[ "$real_count" -gt 1 ]]; then  # If more than one sequence, move file
-            echo "📦 Moving $fasta_file → repeated/ (Contains $real_count sequences)"
+    if [[ -s "$fasta_file" ]]; then  
+        count=$(tail -n +2 "$fasta_file" | grep -c "^>")  
+        real_count=$(( (count + 1) / 2 ))  
+        if [[ "$real_count" -gt 1 ]]; then  
+            echo "Moving $fasta_file → repeated/ (Contains $real_count sequences)"
             mv "$fasta_file" Extracted_DB_Sequences/repeated/
         fi
     fi
 done
 
-echo "📁 Files with multiple sequences have been moved to 'repeated/'"
+echo "Files with multiple sequences have been moved to 'repeated/'"
 
 
 
@@ -205,7 +205,13 @@ echo "📁 Files with multiple sequences have been moved to 'repeated/'"
 ##############
 
 for BLAST_FILE in Blast_Results/*/*.txt; do
-    echo "🔍 Checking file: $BLAST_FILE"
+    echo "Checking file: $BLAST_FILE"
     awk '{print $2, $1}' "$BLAST_FILE" | sort | uniq -c | awk '$1 > 1'
     echo "-------------------------------------------------"
 done
+
+
+
+#####################
+### END OF SCRIPT ###
+#####################
