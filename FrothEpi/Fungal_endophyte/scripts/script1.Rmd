@@ -184,7 +184,7 @@ for (var in numeric_vars) {
 
 ## Exploratory Data Analysis (EDA)
 
-### Graphic approach
+### Graphical approach
 
 ```{r Visualize data distribution}
 
@@ -1301,3 +1301,4 @@ par(mfrow = c(1, 1))
 cat("\n✅ Script executed successfully.\n\nAll output files are available in 'FrothEpi_Github/Fungal_endophyte/data/outputs_script1 \nwithin the GitHub repository downloaded by the user.\n")
 
 ```
+
