@@ -105,3 +105,9 @@ iq2 -te MSA_concat_UFBoot1000.treefile \
     --scfl 1000 \
     --prefix ML_TREE \
     --keep-ident
+
+
+
+    #####################
+    ### END OF SCRIPT ###
+    #####################
