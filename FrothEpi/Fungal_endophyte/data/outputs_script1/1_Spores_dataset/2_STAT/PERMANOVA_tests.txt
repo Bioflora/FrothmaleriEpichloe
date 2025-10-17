@@ -1,0 +1,106 @@
+### PERMANOVA test for Ind 
+
+Permutation test for adonis under reduced model
+Permutation: free
+Number of permutations: 10000
+
+adonis2(formula = X ~ group, permutations = 10000, method = "euclidean")
+          Df SumOfSqs      R2      F    Pr(>F)    
+Model     15   449.44 0.15003 5.3306 9.999e-05 ***
+Residual 453  2546.24 0.84997                     
+Total    468  2995.68 1.00000                     
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+### Homogeneity of dispersion (PERMDISP) for IndAnalysis of Variance Table
+
+Response: Distances
+           Df Sum Sq Mean Sq F value Pr(>F)
+Groups     15  26.35  1.7568  1.4294 0.1291
+Residuals 453 556.77  1.2291               
+
+
+
+
+### PERMANOVA test for Pop 
+
+Permutation test for adonis under reduced model
+Permutation: free
+Number of permutations: 10000
+
+adonis2(formula = X ~ group, permutations = 10000, method = "euclidean")
+          Df SumOfSqs      R2      F    Pr(>F)    
+Model      2   153.16 0.05113 12.555 9.999e-05 ***
+Residual 466  2842.52 0.94887                     
+Total    468  2995.68 1.00000                     
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+### Homogeneity of dispersion (PERMDISP) for PopAnalysis of Variance Table
+
+Response: Distances
+           Df Sum Sq Mean Sq F value  Pr(>F)  
+Groups      2   6.59  3.2946  2.4333 0.08886 .
+Residuals 466 630.94  1.3539                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+
+
+### PERMANOVA test for Ploidy 
+
+Permutation test for adonis under reduced model
+Permutation: free
+Number of permutations: 10000
+
+adonis2(formula = X ~ group, permutations = 10000, method = "euclidean")
+          Df SumOfSqs      R2      F    Pr(>F)    
+Model      2   159.19 0.05314 13.077 9.999e-05 ***
+Residual 466  2836.49 0.94686                     
+Total    468  2995.68 1.00000                     
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+### Homogeneity of dispersion (PERMDISP) for PloidyAnalysis of Variance Table
+
+Response: Distances
+           Df Sum Sq Mean Sq F value  Pr(>F)  
+Groups      2   9.53  4.7626  3.6612 0.02645 *
+Residuals 466 606.20  1.3009                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+
+
+### PERMANOVA test for Plo_pop 
+
+Permutation test for adonis under reduced model
+Permutation: free
+Number of permutations: 10000
+
+adonis2(formula = X ~ group, permutations = 10000, method = "euclidean")
+          Df SumOfSqs      R2     F    Pr(>F)    
+Model      3    190.9 0.06372 10.55 9.999e-05 ***
+Residual 465   2804.8 0.93628                    
+Total    468   2995.7 1.00000                    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+### Homogeneity of dispersion (PERMDISP) for Plo_popAnalysis of Variance Table
+
+Response: Distances
+           Df Sum Sq Mean Sq F value  Pr(>F)  
+Groups      3   9.92  3.3057  2.5336 0.05635 .
+Residuals 465 606.71  1.3048                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+
+

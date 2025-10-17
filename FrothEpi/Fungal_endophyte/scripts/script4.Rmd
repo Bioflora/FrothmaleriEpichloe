@@ -1,0 +1,429 @@
+---
+title: "Construction and basic editing of the phylogenetic trees assessing _Epichloë_ specimens"
+author: "Sotomayor-Alge, Alba"
+date: "05-26-2025"
+output:
+  bookdown::pdf_book:
+    toc: yes
+    toc_depth: 3
+    number_sections: yes
+    highlight: tango
+    latex_engine: xelatex
+    keep_tex: false
+---
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+# Working session setup
+
+```{r Load packages into working session}
+
+# Function to silently load packages without warnings or messages
+load_packages <- function(pkgs) {
+  invisible(
+    lapply(pkgs, function(pkg) {
+      suppressWarnings(
+        suppressMessages(
+          if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+            stop(paste("❌ Package not found:", pkg), call. = FALSE)
+          }
+        )
+      )
+    })
+  )
+}
+
+# Vector of required packages
+packages_needed <- c("dplyr", "tidyr", "ggtree", "ggtreeExtra", "ggplot2", 
+                     "treeio", "scatterpie", "ape", "openxlsx", "tibble",
+                     "patchwork"
+)
+
+# Call the function to load them
+load_packages(packages_needed)
+
+```
+
+```{r Working session information}
+
+# Print the information of the working session in order to ensure reproducibility
+sessionInfo()
+
+```
+
+```{r Create directories}
+
+# Create directories within the file system to save the results of the analyses
+dir.create("../data/outputs_script4", recursive = TRUE, showWarnings = FALSE)
+dir.create("../data/outputs_script4/1_actG", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script4/2_CalM", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script4/3_ITS", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script4/4_tefA", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script4/5_tubB", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script4/6_Speciestree", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script4/7_MLtree", recursive = TRUE, 
+           showWarnings = FALSE)
+dir.create("../data/outputs_script4/8_Collapsedtrees", recursive = TRUE, 
+           showWarnings = FALSE)
+
+```
+
+\newpage
+
+# Generate individual phylogenetic trees (*actG*, *CalM*, ITS region, *tefA*, *tubB*)
+
+```{r Individual phylogenetic trees}
+
+# Define the list of genes and their corresponding output folder prefixes
+genes <- c("actG", "CalM", "ITS", "tefA", "tubB")
+
+# Define nodes to rotate per gene (only ITS for now)
+rotation_nodes <- list(
+  ITS = c(36, 37, 41, 51, 52, 60)
+)
+
+# Function to process and plot each tree
+process_tree <- function(gene_name, index) {
+
+  # Define file paths
+  treefile_path <- paste0("../data/outputs_script3/MSA_", gene_name, "_UFBoot1000.treefile")
+  ufbootfile_path <- paste0("../data/Phylogenetic_analysis/UFBoot_values_", gene_name, ".xlsx")
+  output_dir <- paste0("../data/outputs_script4/", index, "_", gene_name, "/")
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+  # Load and transform the tree
+  tree <- read.tree(treefile_path)
+  tree$edge.length <- sqrt(sqrt(tree$edge.length))
+
+  # Apply node rotations (on phylo object)
+  if (gene_name %in% names(rotation_nodes)) {
+    for (n in rotation_nodes[[gene_name]]) {
+      tree <- rotate(tree, node = n)
+    }
+  }
+
+  # Create ggtree object after rotation
+  base_tree <- ggtree(tree, size = 0.4)
+ 
+  # Extract internal node coordinates
+  tree_coords <- base_tree$data %>% filter(isTip == FALSE)
+
+  # Load UFbootstrap values and merge
+  ufboot <- read.xlsx(ufbootfile_path)
+  tree_data <- left_join(tree_coords, ufboot, by = "node")
+  tree_data$label <- as.numeric(tree_data$label)
+
+  # Plot with UFbootstrap values
+  tree_with_boot <- base_tree +
+    geom_label2(data = tree_data, aes(x = x, y = y, group = node, label = ufboot),
+                color = "black", size = 3) +
+    geom_tiplab(size = 4, align = TRUE) +
+    scale_fill_manual(values = "#f7f7f7") +
+    xlim(0, max(base_tree$data$x) + 1)
+
+  ggsave(filename = paste0(output_dir, gene_name, "_individual_ufboot.pdf"),
+         plot = tree_with_boot,
+         width = 8.27, height = 11.69, units = "in")
+
+  # Plot without UFbootstrap values
+  tree_empty <- base_tree +
+    geom_label2(data = tree_data, aes(x = x, y = y, group = node, label = NA)) +
+    geom_tiplab(size = 4, align = TRUE) +
+    scale_fill_manual(values = "#f7f7f7") +
+    xlim(0, max(base_tree$data$x) + 2)
+
+  ggsave(filename = paste0(output_dir, gene_name, "_individual_empty.pdf"),
+         plot = tree_empty,
+         width = 8.27, height = 11.69, units = "in")
+}
+
+# Apply the function to all genes
+invisible(mapply(process_tree, genes, seq_along(genes)))
+
+```
+
+\newpage
+
+# Generate ASTRAL species trees
+
+```{r ASTRAL species tree with quartet values and posterior probabilities}
+
+# Define tree types and their corresponding Excel files
+tree_configs <- list(
+  Q  = list(tree_file = "../data/outputs_script3/ASTRAL_SPTREE_Q.treefile",
+            data_file = "../data/Phylogenetic_analysis/Q_values_ASTRAL_SPTREE.xlsx"),
+  PP = list(tree_file = "../data/outputs_script3/ASTRAL_SPTREE_PP.treefile",
+            data_file = "../data/Phylogenetic_analysis/PP_values_ASTRAL_SPTREE.xlsx")
+)
+
+# Function to process each ASTRAL tree
+process_astral_tree <- function(suffix, config) {
+
+  # Define paths
+  tree_path  <- config$tree_file
+  value_path <- config$data_file
+  base_name  <- paste0("ASTRALSP_tree_", suffix)
+  output_pdf <- paste0("../data/outputs_script4/6_Speciestree/", base_name, ".pdf")
+
+  # Check file existence
+  if (!file.exists(tree_path)) stop("❌ Tree file not found: ", tree_path)
+  if (!file.exists(value_path)) stop("❌ Data file not found: ", value_path)
+
+  # Load and prepare the tree
+  tree <- read.tree(tree_path)
+  base_tree <- ggtree(tree, size = 0.4, layout = "rectangular")
+  tree_coords <- base_tree$data %>% filter(isTip == FALSE)
+
+  # Load support values
+  support_data <- read.xlsx(value_path)
+
+  # Ensure 'node' column exists
+  if (!"node" %in% colnames(support_data)) {
+    stop("❌ The support file does not contain a 'node' column: ", value_path)
+  }
+
+  # Merge coordinates with support data
+  merged_data <- left_join(tree_coords, support_data, by = "node")
+
+  # Check that the merge produced usable data
+  if (nrow(merged_data) == 0) {
+    stop("❌ No matching nodes between tree and support data for suffix: _", suffix)
+  }
+
+  # Start building the plot
+  plot <- base_tree + geom_tiplab(size = 4, align = TRUE)
+
+  if (suffix == "Q") {
+    # Convert columns to numeric
+    merged_data$q1 <- as.numeric(merged_data$q1)
+    merged_data$q2 <- as.numeric(merged_data$q2)
+    merged_data$q3 <- as.numeric(merged_data$q3)
+
+    plot <- plot +
+      geom_scatterpie(data = merged_data, aes(x = x, y = y, group = node, r = 0.35),
+                      cols = c("q1", "q2", "q3"), color = "black", size = 0.3) +
+      scale_fill_manual(values = c("q1" = "#855885", "q2" = "#f1a340", "q3" = "#f7f7f7")) +
+      xlim(0, max(base_tree$data$x, na.rm = TRUE) + 6) +
+      ylim(0, max(base_tree$data$y, na.rm = TRUE) + 2)
+
+  } else if (suffix == "PP") {
+    merged_data$pp <- as.numeric(merged_data$pp)
+
+    plot <- plot +
+      geom_label2(data = merged_data, aes(x = x, y = y, group = node, label = pp),
+                  color = "black", size = 3) +
+      scale_fill_manual(values = "#f7f7f7") +
+      xlim(NA, 22) +
+      ylim(NA, 38)
+  }
+
+  # Save final plot
+  ggsave(output_pdf, plot = plot, width = 8.27, height = 11.69, units = "in")
+}
+
+# Run for all tree types
+invisible(mapply(process_astral_tree, names(tree_configs), tree_configs))
+
+```
+
+\newpage
+
+# Generate ML (concatenated) phylogenetic tree
+
+```{r IQTREE2 ML tree with UFboot and SCFL values, message=FALSE}
+
+# Load the tree
+treeML <- read.tree("../data/outputs_script3/ML_TREE.tree")
+treeML$edge.length <- sqrt(sqrt(treeML$edge.length))
+base_treeML <- ggtree(treeML, size = 0.4, layout = "rectangular")
+
+# Extract coordinates
+treeML_coordinates <- base_treeML$data
+treeML_coordinates <- treeML_coordinates %>% filter(isTip == FALSE)
+
+# Load posterior probabilities data set 
+bootscfl <- read.xlsx("../data/Phylogenetic_analysis/UFBoot_and_scfl_values_MLtree.xlsx")
+
+# Reformat and create joint table with all the information
+ML_data <- left_join(treeML_coordinates, bootscfl, by = "node")
+ML_data$scfl <- as.numeric(ML_data$scfl) 
+
+# Display tree with BS values
+ML_tree_bootstrap <- base_treeML +
+  geom_label2(data = ML_data, aes(x = x, y = y, group = node, label = ufboot), 
+              color = "black", size = 3) +
+  geom_tiplab(size = 4, align = T) +
+  scale_fill_manual(values = "#f7f7f7") +
+  xlim(0, max(base_treeML$data$x) + 3) +
+  scale_x_continuous(expand = c(1, 0)) +   # Aumentar el espacio horizontal
+  scale_y_continuous(expand = c(0.1, 0))    # Aumentar el espacio vertical
+
+ggsave("../data/outputs_script4/7_MLtree/MLtree_ufboot.pdf",
+       plot = ML_tree_bootstrap,
+       width = 8.27, height = 11.69, units = "in")
+
+
+# Display tree with SCFL values
+ML_tree_SCFL <- base_treeML +
+  geom_label2(data = ML_data, aes(x = x, y = y, group = node, label = scfl), 
+              color = "black", size = 3) +
+  geom_tiplab(size = 4, align = T) +
+  scale_fill_manual(values = "#f7f7f7") +
+  xlim(0, max(base_treeML$data$x) + 3) +
+  scale_x_continuous(expand = c(1, 0)) +   # Aumentar el espacio horizontal
+  scale_y_continuous(expand = c(0.1, 0))    # Aumentar el espacio vertical
+
+ggsave("../data/outputs_script4/7_MLtree/MLtree_scfl.pdf",
+       plot = ML_tree_SCFL,
+       width = 8.27, height = 11.69, units = "in")
+
+
+# Display tree empty
+ML_tree_empty <- base_treeML +
+  geom_label2(data = ML_data, aes(x = x, y = y, group = node, label = scfl), 
+              color = "black", size = 3) +
+  geom_tiplab(size = 4, align = T) +
+  scale_fill_manual(values = "#f7f7f7") +
+  xlim(0, max(base_treeML$data$x) + 3) +
+  scale_x_continuous(expand = c(1, 0)) +   # Aumentar el espacio horizontal
+  scale_y_continuous(expand = c(0.1, 0))    # Aumentar el espacio vertical
+
+ggsave("../data/outputs_script4/7_MLtree/MLtree_empty.pdf",
+       plot = ML_tree_empty,
+       width = 8.27, height = 11.69, units = "in")
+
+```
+
+\newpage
+
+# Generate collapsed individual phylogenetic trees (*actG*, *CalM*, ITS region, *tefA*, *tubB*)
+
+```{r Collapsed individual phylogenetic trees}
+
+# Define gene-specific parameters
+gene_configs <- list(
+  actG = list(
+    file = "../data/outputs_script3/MSA_actG_UFBoot1000.treefile",
+    bootstrap_file = "../data/Phylogenetic_analysis/UFBoot_values_actG.xlsx",
+    nodes = c(62, 54, 57, 39)
+  ),
+  CalM = list(
+    file = "../data/outputs_script3/MSA_CalM_UFBoot1000.treefile",
+    bootstrap_file = "../data/Phylogenetic_analysis/UFBoot_values_CalM.xlsx",
+    nodes = c(64, 61, 56, 40)
+  ),
+  ITS = list(
+    file = "../data/outputs_script3/MSA_ITS_UFBoot1000.treefile",
+    bootstrap_file = "../data/Phylogenetic_analysis/UFBoot_values_ITS.xlsx",
+    nodes = c(57, 55, 63, 61, 64, 38),
+    rotations = c(36, 37, 51, 52, 60)
+  ),
+  tefA = list(
+    file = "../data/outputs_script3/MSA_tefA_UFBoot1000.treefile",
+    bootstrap_file = "../data/Phylogenetic_analysis/UFBoot_values_tefA.xlsx",
+    nodes = c(64, 61, 55, 41)
+  ),
+  tub2 = list(
+    file = "../data/outputs_script3/MSA_tubB_UFBoot1000.treefile",
+    bootstrap_file = "../data/Phylogenetic_analysis/UFBoot_values_tubB.xlsx",
+    nodes = c(64, 61, 55, 56, 41, 43)
+  )
+)
+
+# Function to process each tree
+process_collapsed_tree <- function(gene, config) {
+  # Load and transform tree
+  tree <- read.tree(config$file)
+  tree$edge.length <- sqrt(sqrt(tree$edge.length))
+
+  # Apply rotations BEFORE plotting
+  if (!is.null(config$rotations)) {
+    for (n in config$rotations) {
+      tree <- rotate(tree, node = n)
+    }
+  }
+
+  # Now create ggtree object
+  base_tree <- ggtree(tree, size = 0.2)
+
+  # Collapse specified nodes
+  collapsed_tree <- base_tree
+  for (n in config$nodes) {
+    collapsed_tree <- collapse(collapsed_tree, node = n)
+  }
+
+  # Extract coordinates of internal nodes
+  node_coords <- collapsed_tree$data %>% filter(!isTip)
+
+  # Load bootstrap values from Excel
+  if (!file.exists(config$bootstrap_file)) {
+    stop("❌ Missing bootstrap file for ", gene, ": ", config$bootstrap_file)
+  }
+
+  ufboot_data <- read.xlsx(config$bootstrap_file)
+  if (!all(c("node", "ufboot") %in% names(ufboot_data))) {
+    stop("❌ 'node' and 'ufboot' columns are required in: ", config$bootstrap_file)
+  }
+
+  # Merge bootstrap values with node coordinates
+  merged_data <- left_join(node_coords, ufboot_data, by = "node")
+  merged_data$ufboot <- as.numeric(merged_data$ufboot)
+
+  # Plot collapsed tree
+  tree_plot <- collapsed_tree +
+    geom_label2(data = merged_data, aes(x = x, y = y, label = NA),
+                size = 1.8, label.size = 0.2, fill = "white") +
+    geom_tiplab(size = 1.8, align = TRUE, linesize = 0.2) +
+    theme_tree2() +
+    theme(axis.line.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank()) +
+    xlim(0, 8)
+
+  # Save individual PDF
+  ggsave(paste0("../data/outputs_script4/8_Collapsedtrees/", gene, "_collapsed_ufboot.pdf"),
+         plot = tree_plot, width = 4, height = 3.8, units = "in")
+
+  return(tree_plot)
+}
+
+# Apply function to all genes
+collapsed_trees <- invisible(mapply(process_collapsed_tree, names(gene_configs), 
+                                    gene_configs, SIMPLIFY = FALSE))
+
+# Combine plots with patchwork
+combined_plot <- (
+  (collapsed_trees$actG + collapsed_trees$CalM) /
+  (collapsed_trees$ITS + collapsed_trees$tefA) /
+  (collapsed_trees$tub2 + plot_spacer())
+) +
+  plot_layout(heights = c(1, 1, 1.2)) +
+  plot_annotation(
+    theme = theme(plot.caption = element_text(size = 10, hjust = 0.5, margin = margin(t = 10)))
+  )
+
+# Save final combined tree figure
+ggsave("../data/outputs_script4/8_Collapsedtrees/All_collapsedtrees.pdf",
+       plot = combined_plot,
+       width = 21, height = 29.7, units = "cm")
+
+```
+
+```{r End of script}
+
+# Message announcing the end of the script and where to find the output files
+cat("\n✅ Script executed successfully.\n\nAll output files are available in 'FrothEpi_Github/Fungal_endophyte/data/outputs_script#3 \nwithin the GitHub repository downloaded by the user.\n")
+
+```

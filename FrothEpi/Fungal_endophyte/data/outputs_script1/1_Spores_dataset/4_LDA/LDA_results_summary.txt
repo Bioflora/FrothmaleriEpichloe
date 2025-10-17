@@ -1,0 +1,501 @@
+### LDA model All observations (n = 469)  |  Population 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+      cab       can       mon 
+0.2515991 0.5010661 0.2473348 
+
+Group means:
+      conidW   conidL conidiophL conidiophW   conidA
+cab 1.950119 4.341627   11.75733   1.856339 6.769475
+can 2.055357 4.527557   12.30022   1.826294 7.322557
+mon 2.032767 4.280586   13.14088   1.760017 6.842603
+
+Coefficients of linear discriminants:
+                  LD1        LD2
+conidW      1.5781959 -2.8640132
+conidL     -2.2285734  0.1701046
+conidiophL  0.2802561 -0.1868818
+conidiophW -0.2561663  0.2072610
+conidA     -0.1109603 -0.5316327
+
+Proportion of trace:
+  LD1   LD2 
+0.594 0.406 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction cab can mon
+       cab  30  26   7
+       can  78 188  62
+       mon  10  21  47
+
+>> Classification Statistics <<
+
+Accuracy             0.565
+Kappa                0.243
+AccuracyLower        0.519
+AccuracyUpper        0.610
+AccuracyNull         0.501
+AccuracyPValue       0.003
+McnemarPValue        0.000
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.552
+Kappa                0.216
+
+
+
+
+### LDA model Mean per plate (n = 48)  |  Population 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+ cab  can  mon 
+0.25 0.50 0.25 
+
+Group means:
+      conidW   conidL conidiophL conidiophW   conidA
+cab 1.948762 4.341185   11.73592   1.861556 6.766185
+can 2.054723 4.531834   12.28541   1.833478 7.335223
+mon 2.030950 4.278448   13.15559   1.756069 6.838869
+
+Coefficients of linear discriminants:
+                  LD1        LD2
+conidW      2.8086337 -4.3510024
+conidL     -4.6418949  0.7051680
+conidiophL  0.6604413 -0.3505519
+conidiophW  0.3053408 -0.1027322
+conidA      0.2452769 -1.5264622
+
+Proportion of trace:
+   LD1    LD2 
+0.5714 0.4286 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction cab can mon
+       cab   7   2   1
+       can   5  21   2
+       mon   0   1   9
+
+>> Classification Statistics <<
+
+Accuracy             0.771
+Kappa                0.621
+AccuracyLower        0.627
+AccuracyUpper        0.880
+AccuracyNull         0.500
+AccuracyPValue       0.000
+McnemarPValue        0.454
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.667
+Kappa                0.448
+
+
+
+
+### LDA model Mean per individual (n = 16)  |  Population 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+ cab  can  mon 
+0.25 0.50 0.25 
+
+Group means:
+      conidW   conidL conidiophL conidiophW   conidA
+cab 1.950672 4.341971   11.75278   1.855062 6.766129
+can 2.055891 4.530754   12.30175   1.826418 7.325906
+mon 2.032043 4.278355   13.15994   1.756702 6.837455
+
+Coefficients of linear discriminants:
+                  LD1        LD2
+conidW     16.2860977 -2.4552346
+conidL     -6.6475455 -2.5054410
+conidiophL  0.1878617  0.7787339
+conidiophW -9.3879305  0.3600042
+conidA      3.1644772 -1.1892727
+
+Proportion of trace:
+   LD1    LD2 
+0.7046 0.2954 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction cab can mon
+       cab   3   0   0
+       can   1   8   1
+       mon   0   0   3
+
+>> Classification Statistics <<
+
+Accuracy             0.875
+Kappa                0.789
+AccuracyLower        0.617
+AccuracyUpper        0.984
+AccuracyNull         0.500
+AccuracyPValue       0.002
+McnemarPValue        NaN
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.562
+Kappa                0.263
+
+
+
+
+### LDA model All observations (n = 469)  |  Host ploidy level 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+       4x        6x        8x 
+0.4968017 0.2515991 0.2515991 
+
+Group means:
+     conidW   conidL conidiophL conidiophW   conidA
+4x 2.048116 4.435532   12.91820   1.791923 7.092373
+6x 1.950119 4.341627   11.75733   1.856339 6.769475
+8x 2.047449 4.466483   11.90638   1.829008 7.305254
+
+Coefficients of linear discriminants:
+                  LD1         LD2
+conidW     -2.9312976  1.03635342
+conidL      0.2458581 -1.01104716
+conidiophL -0.3382125 -0.24632421
+conidiophW  0.2717274  0.01461697
+conidA     -0.1551123  1.05873670
+
+Proportion of trace:
+   LD1    LD2 
+0.6838 0.3162 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction  4x  6x  8x
+        4x 200  81  83
+        6x  18  34  17
+        8x  15   3  18
+
+>> Classification Statistics <<
+
+Accuracy             0.537
+Kappa                0.171
+AccuracyLower        0.491
+AccuracyUpper        0.583
+AccuracyNull         0.497
+AccuracyPValue       0.044
+McnemarPValue        0.000
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.522
+Kappa                0.146
+
+
+
+
+### LDA model Mean per plate (n = 48)  |  Host ploidy level 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+  4x   6x   8x 
+0.50 0.25 0.25 
+
+Group means:
+     conidW   conidL conidiophL conidiophW   conidA
+4x 2.047157 4.435517   12.91322   1.792712 7.097615
+6x 1.948762 4.341185   11.73592   1.861556 6.766185
+8x 2.046081 4.471081   11.89997   1.837600 7.314085
+
+Coefficients of linear discriminants:
+                  LD1        LD2
+conidW     -4.7289734  1.6707848
+conidL      0.9810036 -3.2785165
+conidiophL -0.7592122 -0.5221964
+conidiophW -0.4620536 -0.7090719
+conidA     -0.7492290  2.4273098
+
+Proportion of trace:
+   LD1    LD2 
+0.6908 0.3092 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction 4x 6x 8x
+        4x 21  4  5
+        6x  1  7  2
+        8x  2  1  5
+
+>> Classification Statistics <<
+
+Accuracy             0.688
+Kappa                0.474
+AccuracyLower        0.537
+AccuracyUpper        0.813
+AccuracyNull         0.500
+AccuracyPValue       0.007
+McnemarPValue        0.331
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.562
+Kappa                0.257
+
+
+
+
+### LDA model Mean per individual (n = 16)  |  Host ploidy level 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+  4x   6x   8x 
+0.50 0.25 0.25 
+
+Group means:
+     conidW   conidL conidiophL conidiophW   conidA
+4x 2.048243 4.435260   12.92930   1.790151 7.091940
+6x 1.950672 4.341971   11.75278   1.855062 6.766129
+8x 2.047340 4.469343   11.90483   1.829237 7.305386
+
+Coefficients of linear discriminants:
+                  LD1       LD2
+conidW     16.1051268  3.323225
+conidL     -7.4635905  9.559266
+conidiophL -0.1732619  1.440390
+conidiophW -9.7619330  2.830229
+conidA      4.1221635 -5.284138
+
+Proportion of trace:
+   LD1    LD2 
+0.6493 0.3507 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction 4x 6x 8x
+        4x  7  1  1
+        6x  0  3  0
+        8x  1  0  3
+
+>> Classification Statistics <<
+
+Accuracy             0.812
+Kappa                0.692
+AccuracyLower        0.544
+AccuracyUpper        0.960
+AccuracyNull         0.500
+AccuracyPValue       0.011
+McnemarPValue        NaN
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.688
+Kappa                0.459
+
+
+
+
+### LDA model All observations (n = 469)  |  Population × Host ploidy level 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+    cab6x     can4x     can8x     mon4x 
+0.2515991 0.2494670 0.2515991 0.2473348 
+
+Group means:
+        conidW   conidL conidiophL conidiophW   conidA
+cab6x 1.950119 4.341627   11.75733   1.856339 6.769475
+can4x 2.063333 4.589154   12.69743   1.823556 7.340009
+can8x 2.047449 4.466483   11.90638   1.829008 7.305254
+mon4x 2.032767 4.280586   13.14088   1.760017 6.842603
+
+Coefficients of linear discriminants:
+                   LD1        LD2         LD3
+conidW     -1.49163994  2.6279614  1.53344797
+conidL      2.31652231  0.4870924 -2.93724527
+conidiophL -0.26406398  0.2560296 -0.20327840
+conidiophW  0.24898587 -0.2010609 -0.09035288
+conidA      0.09597552  0.2421188  1.18332402
+
+Proportion of trace:
+   LD1    LD2    LD3 
+0.4947 0.3738 0.1315 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction cab6x can4x can8x mon4x
+     cab6x    57    20    32    17
+     can4x    21    48    28    24
+     can8x    16    23    36    11
+     mon4x    24    26    22    64
+
+>> Classification Statistics <<
+
+Accuracy             0.437
+Kappa                0.250
+AccuracyLower        0.392
+AccuracyUpper        0.483
+AccuracyNull         0.252
+AccuracyPValue       0.000
+McnemarPValue        0.095
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.409
+Kappa                0.213
+
+
+
+
+### LDA model Mean per plate (n = 48)  |  Population × Host ploidy level 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+cab6x can4x can8x mon4x 
+ 0.25  0.25  0.25  0.25 
+
+Group means:
+        conidW   conidL conidiophL conidiophW   conidA
+cab6x 1.948762 4.341185   11.73592   1.861556 6.766185
+can4x 2.063364 4.592587   12.67085   1.829355 7.356361
+can8x 2.046081 4.471081   11.89997   1.837600 7.314085
+mon4x 2.030950 4.278448   13.15559   1.756069 6.838869
+
+Coefficients of linear discriminants:
+                  LD1       LD2        LD3
+conidW     -2.7845458 3.8905808  2.1159349
+conidL      4.5817300 1.1311062 -6.3571640
+conidiophL -0.6545995 0.4884837 -0.4329116
+conidiophW -0.3033964 0.3310959 -0.7723391
+conidA     -0.2420363 0.8001402  2.6848498
+
+Proportion of trace:
+   LD1    LD2    LD3 
+0.4664 0.3883 0.1453 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction cab6x can4x can8x mon4x
+     cab6x     9     0     3     1
+     can4x     1     8     4     1
+     can8x     2     2     4     1
+     mon4x     0     2     1     9
+
+>> Classification Statistics <<
+
+Accuracy             0.625
+Kappa                0.500
+AccuracyLower        0.474
+AccuracyUpper        0.760
+AccuracyNull         0.250
+AccuracyPValue       0.000
+McnemarPValue        0.783
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.479
+Kappa                0.306
+
+
+
+
+### LDA model Mean per individual (n = 16)  |  Population × Host ploidy level 
+
+>> Model summary <<
+
+Call:
+lda(formula, data = df)
+
+Prior probabilities of groups:
+cab6x can4x can8x mon4x 
+ 0.25  0.25  0.25  0.25 
+
+Group means:
+        conidW   conidL conidiophL conidiophW   conidA
+cab6x 1.950672 4.341971   11.75278   1.855062 6.766129
+can4x 2.064442 4.592165   12.69866   1.823600 7.346425
+can8x 2.047340 4.469343   11.90483   1.829237 7.305386
+mon4x 2.032043 4.278355   13.15994   1.756702 6.837455
+
+Coefficients of linear discriminants:
+                   LD1       LD2         LD3
+conidW     -15.2159115  2.505686 -3.91888290
+conidL       9.2645939  8.262127 -9.22130566
+conidiophL   0.1220858  1.388774 -0.06421354
+conidiophW  10.0634233  2.654929 -1.93360301
+conidA      -4.4185092 -4.905260  2.26340706
+
+Proportion of trace:
+   LD1    LD2    LD3 
+0.5345 0.2740 0.1916 
+
+>> Confusion Matrix <<
+
+          Reference
+Prediction cab6x can4x can8x mon4x
+     cab6x     4     0     0     0
+     can4x     0     4     1     0
+     can8x     0     0     3     1
+     mon4x     0     0     0     3
+
+>> Classification Statistics <<
+
+Accuracy             0.875
+Kappa                0.833
+AccuracyLower        0.617
+AccuracyUpper        0.984
+AccuracyNull         0.250
+AccuracyPValue       0.000
+McnemarPValue        NaN
+
+>> Cross-validation (LOOCV) <<
+
+Accuracy             0.500
+Kappa                0.333
+
+
+
+
